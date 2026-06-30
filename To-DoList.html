@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Smart Task Management System</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Arial,sans-serif;
+}
+
+body{
+background:#f5f5f5;
+transition:0.3s;
+padding:20px;
+}
+
+.dark{
+background:#121212;
+color:white;
+}
+
+.container{
+max-width:1000px;
+margin:auto;
+background:white;
+padding:20px;
+border-radius:12px;
+box-shadow:0 0 15px rgba(0,0,0,0.1);
+}
+
+.dark .container{
+background:#1e1e1e;
+}
+
+h1{
+text-align:center;
+margin-bottom:10px;
+}
+
+.subtitle{
+text-align:center;
+color:gray;
+margin-bottom:20px;
+}
+
+.controls{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+gap:10px;
+margin-bottom:15px;
+}
+
+input,select,button{
+padding:10px;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+button{
+cursor:pointer;
+}
+
+.add-btn{
+background:#28a745;
+color:white;
+border:none;
+}
+
+.dark-btn{
+background:#333;
+color:white;
+border:none;
+}
+
+.export-btn{
+background:#007bff;
+color:white;
+border:none;
+}
+
+.stats{
+display:flex;
+gap:15px;
+justify-content:center;
+margin:15px 0;
+flex-wrap:wrap;
+}
+
+.card{
+background:#eee;
+padding:10px 20px;
+border-radius:10px;
+font-weight:bold;
+}
+
+.dark .card{
+background:#333;
+}
+
+.task{
+padding:15px;
+border-radius:10px;
+background:#f1f1f1;
+margin-bottom:10px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+gap:10px;
+}
+
+.dark .task{
+background:#2b2b2b;
+}
+
+.high{
+border-left:8px solid red;
+}
+
+.medium{
+border-left:8px solid orange;
+}
+
+.low{
+border-left:8px solid green;
+}
+
+.completed{
+text-decoration:line-through;
+opacity:0.6;
+}
+
+.actions button{
+margin-left:5px;
+}
+
+.about{
+margin-top:30px;
+padding:15px;
+background:#fafafa;
+border-radius:10px;
+}
+
+.dark .about{
+background:#2a2a2a;
+}
+
+@media(max-width:700px){
+
+.task{
+flex-direction:column;
+align-items:flex-start;
+}
+
+.actions{
+width:100%;
+display:flex;
+flex-wrap:wrap;
+gap:5px;
+}
+
+.actions button{
+margin-left:0;
+}
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Smart Task Management System</h1>
+
+<!-- <p class="subtitle">
+Semester 5 Mini Project using HTML, CSS & JavaScript
+</p> -->
+
+<div class="controls">
+
+<input type="text" id="taskInput" placeholder="Task">
+
+<input type="date" id="dueDate">
+
+<select id="category">
+<option>Personal</option>
+<option>Study</option>
+<option>Work</option>
+<option>Health</option>
+</select>
+
+<select id="priority">
+<option value="high">High</option>
+<option value="medium">Medium</option>
+<option value="low">Low</option>
+</select>
+
+<button class="add-btn" onclick="addTask()">
+Add Task
+</button>
+
+</div>
+
+<div class="controls">
+
+<input type="text"
+id="search"
+placeholder="Search Task"
+onkeyup="renderTasks()">
+
+<select id="filterCategory"
+onchange="renderTasks()">
+
+<option value="All">All Categories</option>
+<option value="Personal">Personal</option>
+<option value="Study">Study</option>
+<option value="Work">Work</option>
+<option value="Health">Health</option>
+
+</select>
+
+<select id="sortPriority"
+onchange="renderTasks()">
+
+<option value="none">Sort Priority</option>
+<option value="high">High First</option>
+<option value="low">Low First</option>
+
+</select>
+
+<button class="dark-btn"
+onclick="toggleDark()">
+Dark Mode
+</button>
+
+<button class="export-btn"
+onclick="exportPDF()">
+Export PDF
+</button>
+
+</div>
+
+<div class="stats">
+
+<div class="card">
+Total Tasks:
+<span id="totalCount">0</span>
+</div>
+
+<div class="card">
+Completed:
+<span id="completedCount">0</span>
+</div>
+
+<div class="card">
+Pending:
+<span id="pendingCount">0</span>
+</div>
+
+</div>
+
+<div id="taskList"></div>
+
+<div class="about">
+
+<h2>About Project</h2>
+
+<!-- <p>
+This Smart Task Management System helps users
+organize tasks using categories, priorities,
+due dates, dark mode and local storage.
+The application demonstrates CRUD operations,
+DOM manipulation, event handling and browser storage.
+</p> -->
+
+</div>
+
+</div>
+
+<script>
+
+let tasks=
+JSON.parse(localStorage.getItem("tasks")) || [];
+
+function saveData(){
+localStorage.setItem(
+"tasks",
+JSON.stringify(tasks)
+);
+}
+
+function addTask(){
+
+let text=
+document.getElementById("taskInput").value;
+
+let category=
+document.getElementById("category").value;
+
+let priority=
+document.getElementById("priority").value;
+
+let dueDate=
+document.getElementById("dueDate").value;
+
+if(text.trim()===""){
+alert("Enter task");
+return;
+}
+
+tasks.push({
+text,
+category,
+priority,
+dueDate,
+completed:false
+});
+
+saveData();
+
+document.getElementById("taskInput").value="";
+
+renderTasks();
+}
+
+function deleteTask(index){
+tasks.splice(index,1);
+saveData();
+renderTasks();
+}
+
+function toggleComplete(index){
+tasks[index].completed=
+!tasks[index].completed;
+
+saveData();
+renderTasks();
+}
+
+function editTask(index){
+
+let newText=
+prompt(
+"Edit Task",
+tasks[index].text
+);
+
+if(newText){
+tasks[index].text=newText;
+saveData();
+renderTasks();
+}
+
+}
+
+function renderTasks(){
+
+let list=
+document.getElementById("taskList");
+
+list.innerHTML="";
+
+let search=
+document.getElementById("search")
+.value
+.toLowerCase();
+
+let category=
+document.getElementById(
+"filterCategory"
+).value;
+
+let sort=
+document.getElementById(
+"sortPriority"
+).value;
+
+let filtered=
+tasks.filter(task=>{
+
+let matchSearch=
+task.text.toLowerCase()
+.includes(search);
+
+let matchCategory=
+category==="All" ||
+task.category===category;
+
+return matchSearch &&
+matchCategory;
+
+});
+
+if(sort==="high"){
+
+filtered.sort((a,b)=>{
+
+const rank={
+high:3,
+medium:2,
+low:1
+};
+
+return rank[b.priority]-
+rank[a.priority];
+
+});
+
+}
+
+if(sort==="low"){
+
+filtered.sort((a,b)=>{
+
+const rank={
+high:3,
+medium:2,
+low:1
+};
+
+return rank[a.priority]-
+rank[b.priority];
+
+});
+
+}
+
+filtered.forEach((task,index)=>{
+
+let div=
+document.createElement("div");
+
+div.className=
+`task ${task.priority}`;
+
+div.innerHTML=`
+
+<div>
+
+<h3 class="${
+task.completed ?
+'completed' :
+''
+}">
+${task.text}
+</h3>
+
+<p>
+Category:
+${task.category}
+</p>
+
+<p>
+Priority:
+${task.priority}
+</p>
+
+<p>
+Due:
+${task.dueDate || "Not Set"}
+</p>
+
+</div>
+
+<div class="actions">
+
+<button onclick=
+"toggleComplete(${index})">
+✓
+</button>
+
+<button onclick=
+"editTask(${index})">
+Edit
+</button>
+
+<button onclick=
+"deleteTask(${index})">
+Delete
+</button>
+
+</div>
+
+`;
+
+list.appendChild(div);
+
+});
+
+updateStats();
+
+}
+
+function updateStats(){
+
+document.getElementById(
+"totalCount"
+).innerText=
+tasks.length;
+
+let completed=
+tasks.filter(
+t=>t.completed
+).length;
+
+document.getElementById(
+"completedCount"
+).innerText=
+completed;
+
+document.getElementById(
+"pendingCount"
+).innerText=
+tasks.length-completed;
+
+}
+
+function toggleDark(){
+
+document.body
+.classList.toggle("dark");
+
+localStorage.setItem(
+"darkMode",
+document.body.classList.contains("dark")
+);
+
+}
+
+if(
+localStorage.getItem("darkMode")
+==="true"
+){
+document.body.classList.add("dark");
+}
+
+function exportPDF(){
+
+const { jsPDF } =
+window.jspdf;
+
+const doc =
+new jsPDF();
+
+doc.text(
+"Task Report",
+10,
+10
+);
+
+let y=20;
+
+tasks.forEach((task,i)=>{
+
+doc.text(
+`${i+1}. ${task.text}
+ | ${task.category}
+ | ${task.priority}
+ | ${task.dueDate}`,
+10,
+y
+);
+
+y+=10;
+
+});
+
+doc.save("Tasks.pdf");
+
+}
+
+renderTasks();
+
+</script>
+
+</body>
+</html>
