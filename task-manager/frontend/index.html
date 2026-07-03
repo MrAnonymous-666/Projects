@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Task Management System</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#28a745">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif;}
+body{background:#f5f5f5;transition:0.3s;padding:20px;}
+.dark{background:#121212;color:white;}
+.container{max-width:1000px;margin:auto;background:white;padding:20px;border-radius:12px;box-shadow:0 0 15px rgba(0,0,0,0.1);}
+.dark .container{background:#1e1e1e;}
+h1{text-align:center;margin-bottom:10px;}
+.subtitle{text-align:center;color:gray;margin-bottom:20px;}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:15px;}
+input,select,button{padding:10px;border-radius:8px;border:1px solid #ccc;}
+button{cursor:pointer;}
+.add-btn{background:#28a745;color:white;border:none;}
+.dark-btn{background:#333;color:white;border:none;}
+.export-btn{background:#007bff;color:white;border:none;}
+.logout-btn{background:#dc3545;color:white;border:none;}
+.stats{display:flex;gap:15px;justify-content:center;margin:15px 0;flex-wrap:wrap;}
+.card{background:#eee;padding:10px 20px;border-radius:10px;font-weight:bold;}
+.dark .card{background:#333;}
+.task{padding:15px;border-radius:10px;background:#f1f1f1;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.dark .task{background:#2b2b2b;}
+.high{border-left:8px solid red;}
+.medium{border-left:8px solid orange;}
+.low{border-left:8px solid green;}
+.completed{text-decoration:line-through;opacity:0.6;}
+.actions button{margin-left:5px;}
+.about{margin-top:30px;padding:15px;background:#fafafa;border-radius:10px;}
+.dark .about{background:#2a2a2a;}
+#authScreen{max-width:400px;margin:60px auto;background:white;padding:30px;border-radius:12px;box-shadow:0 0 15px rgba(0,0,0,0.1);}
+#authScreen input{width:100%;margin-bottom:10px;}
+#authScreen button{width:100%;margin-top:5px;}
+.hidden{display:none;}
+.error-msg{color:red;font-size:14px;margin-bottom:10px;}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+@media(max-width:700px){
+.task{flex-direction:column;align-items:flex-start;}
+.actions{width:100%;display:flex;flex-wrap:wrap;gap:5px;}
+.actions button{margin-left:0;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN / REGISTER SCREEN -->
+<div id="authScreen">
+  <h1 id="authTitle">Login</h1>
+  <p id="authError" class="error-msg"></p>
+  <input type="text" id="nameField" placeholder="Name (register only)" class="hidden">
+  <input type="email" id="emailField" placeholder="Email">
+  <input type="password" id="passwordField" placeholder="Password">
+  <button class="add-btn" id="authSubmitBtn" onclick="handleAuthSubmit()">Login</button>
+  <button class="dark-btn" onclick="toggleAuthMode()" id="authToggleBtn">Need an account? Register</button>
+</div>
+
+<!-- MAIN APP (hidden until logged in) -->
+<div class="container hidden" id="appContainer">
+
+<div class="topbar">
+  <h1>Smart Task Management System</h1>
+  <div>
+    <button class="add-btn hidden" id="installBtn" onclick="installApp()">Install App</button>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<div class="controls">
+<input type="text" id="taskInput" placeholder="Task">
+<input type="date" id="dueDate">
+<select id="category">
+<option>Personal</option>
+<option>Study</option>
+<option>Work</option>
+<option>Health</option>
+</select>
+<select id="priority">
+<option value="high">High</option>
+<option value="medium">Medium</option>
+<option value="low">Low</option>
+</select>
+<button class="add-btn" onclick="addTask()">Add Task</button>
+</div>
+
+<div class="controls">
+<input type="text" id="search" placeholder="Search Task" onkeyup="renderTasks()">
+<select id="filterCategory" onchange="renderTasks()">
+<option value="All">All Categories</option>
+<option value="Personal">Personal</option>
+<option value="Study">Study</option>
+<option value="Work">Work</option>
+<option value="Health">Health</option>
+</select>
+<select id="sortPriority" onchange="renderTasks()">
+<option value="none">Sort Priority</option>
+<option value="high">High First</option>
+<option value="low">Low First</option>
+</select>
+<button class="dark-btn" onclick="toggleDark()">Dark Mode</button>
+<button class="export-btn" onclick="exportPDF()">Export PDF</button>
+</div>
+
+<div class="stats">
+<div class="card">Total Tasks: <span id="totalCount">0</span></div>
+<div class="card">Completed: <span id="completedCount">0</span></div>
+<div class="card">Pending: <span id="pendingCount">0</span></div>
+</div>
+
+<div id="taskList"></div>
+
+<div class="about">
+<h2>About Project</h2>
+</div>
+
+</div>
+
+<script>
+// ===== CONFIG =====
+// Change this to your deployed backend URL once hosted (e.g. Render/Railway)
+const API_URL = "http://localhost:5000/api";
+
+let tasks = [];
+let isRegisterMode = false;
+
+// ===== AUTH =====
+
+function getToken(){ return localStorage.getItem("token"); }
+function getUserName(){ return localStorage.getItem("userName"); }
+
+function toggleAuthMode(){
+  isRegisterMode = !isRegisterMode;
+  document.getElementById("authTitle").innerText = isRegisterMode ? "Register" : "Login";
+  document.getElementById("authSubmitBtn").innerText = isRegisterMode ? "Register" : "Login";
+  document.getElementById("authToggleBtn").innerText = isRegisterMode ? "Already have an account? Login" : "Need an account? Register";
+  document.getElementById("nameField").classList.toggle("hidden", !isRegisterMode);
+  document.getElementById("authError").innerText = "";
+}
+
+async function handleAuthSubmit(){
+  const email = document.getElementById("emailField").value.trim();
+  const password = document.getElementById("passwordField").value;
+  const name = document.getElementById("nameField").value.trim();
+  const errorEl = document.getElementById("authError");
+  errorEl.innerText = "";
+
+  if(!email || !password || (isRegisterMode && !name)){
+    errorEl.innerText = "Please fill all fields";
+    return;
+  }
+
+  const endpoint = isRegisterMode ? "register" : "login";
+  const body = isRegisterMode ? { name, email, password } : { email, password };
+
+  try{
+    const res = await fetch(`${API_URL}/auth/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+
+    if(!res.ok){
+      errorEl.innerText = data.message || "Something went wrong";
+      return;
+    }
+
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("userName", data.name);
+    showApp();
+  }catch(err){
+    errorEl.innerText = "Cannot reach server. Is the backend running?";
+  }
+}
+
+function logout(){
+  localStorage.removeItem("token");
+  localStorage.removeItem("userName");
+  document.getElementById("appContainer").classList.add("hidden");
+  document.getElementById("authScreen").classList.remove("hidden");
+}
+
+async function showApp(){
+  document.getElementById("authScreen").classList.add("hidden");
+  document.getElementById("appContainer").classList.remove("hidden");
+  await loadTasks();
+}
+
+// ===== API HELPERS =====
+
+function authHeaders(){
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${getToken()}`
+  };
+}
+
+async function loadTasks(){
+  const res = await fetch(`${API_URL}/tasks`, { headers: authHeaders() });
+  if(res.status === 401){ logout(); return; }
+  tasks = await res.json();
+  renderTasks();
+}
+
+async function addTask(){
+  const text = document.getElementById("taskInput").value;
+  const category = document.getElementById("category").value;
+  const priority = document.getElementById("priority").value;
+  const dueDate = document.getElementById("dueDate").value;
+
+  if(text.trim() === ""){ alert("Enter task"); return; }
+
+  const res = await fetch(`${API_URL}/tasks`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ text, category, priority, dueDate })
+  });
+
+  if(res.ok){
+    document.getElementById("taskInput").value = "";
+    await loadTasks();
+  }
+}
+
+async function deleteTask(id){
+  await fetch(`${API_URL}/tasks/${id}`, { method: "DELETE", headers: authHeaders() });
+  await loadTasks();
+}
+
+async function toggleComplete(id, currentStatus){
+  await fetch(`${API_URL}/tasks/${id}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify({ completed: !currentStatus })
+  });
+  await loadTasks();
+}
+
+async function editTask(id, currentText){
+  const newText = prompt("Edit Task", currentText);
+  if(newText){
+    await fetch(`${API_URL}/tasks/${id}`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify({ text: newText })
+    });
+    await loadTasks();
+  }
+}
+
+// ===== RENDER =====
+
+function renderTasks(){
+  let list = document.getElementById("taskList");
+  list.innerHTML = "";
+
+  let search = document.getElementById("search").value.toLowerCase();
+  let category = document.getElementById("filterCategory").value;
+  let sort = document.getElementById("sortPriority").value;
+
+  let filtered = tasks.filter(task => {
+    let matchSearch = task.text.toLowerCase().includes(search);
+    let matchCategory = category === "All" || task.category === category;
+    return matchSearch && matchCategory;
+  });
+
+  const rank = { high: 3, medium: 2, low: 1 };
+  if(sort === "high") filtered.sort((a,b) => rank[b.priority] - rank[a.priority]);
+  if(sort === "low") filtered.sort((a,b) => rank[a.priority] - rank[b.priority]);
+
+  filtered.forEach(task => {
+    let div = document.createElement("div");
+    div.className = `task ${task.priority}`;
+    div.innerHTML = `
+      <div>
+        <h3 class="${task.completed ? 'completed' : ''}">${task.text}</h3>
+        <p>Category: ${task.category}</p>
+        <p>Priority: ${task.priority}</p>
+        <p>Due: ${task.dueDate || "Not Set"}</p>
+      </div>
+      <div class="actions">
+        <button onclick="toggleComplete('${task._id}', ${task.completed})">✓</button>
+        <button onclick="editTask('${task._id}', '${task.text.replace(/'/g,"\\'")}')">Edit</button>
+        <button onclick="deleteTask('${task._id}')">Delete</button>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+
+  updateStats();
+}
+
+function updateStats(){
+  document.getElementById("totalCount").innerText = tasks.length;
+  let completed = tasks.filter(t => t.completed).length;
+  document.getElementById("completedCount").innerText = completed;
+  document.getElementById("pendingCount").innerText = tasks.length - completed;
+}
+
+function toggleDark(){
+  document.body.classList.toggle("dark");
+  localStorage.setItem("darkMode", document.body.classList.contains("dark"));
+}
+if(localStorage.getItem("darkMode") === "true"){
+  document.body.classList.add("dark");
+}
+
+function exportPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.text("Task Report", 10, 10);
+  let y = 20;
+  tasks.forEach((task, i) => {
+    doc.text(`${i+1}. ${task.text} | ${task.category} | ${task.priority} | ${task.dueDate || ""}`, 10, y);
+    y += 10;
+  });
+  doc.save("Tasks.pdf");
+}
+
+// ===== INIT =====
+if(getToken()){
+  showApp();
+}
+
+// ===== PWA: register service worker =====
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("service-worker.js")
+      .then(() => console.log("Service worker registered"))
+      .catch((err) => console.log("Service worker registration failed:", err));
+  });
+}
+
+// ===== PWA: optional "Install App" button =====
+let deferredInstallPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById("installBtn");
+  if(btn) btn.classList.remove("hidden");
+});
+
+function installApp(){
+  if(!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(() => {
+    deferredInstallPrompt = null;
+    document.getElementById("installBtn").classList.add("hidden");
+  });
+}
+</script>
+
+</body>
+</html>

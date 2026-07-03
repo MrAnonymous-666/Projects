@@ -1,0 +1,18 @@
+# Environment variables (contains secrets - never commit this)
+.env
+
+# Dependencies
+node_modules/
+desktop/node_modules/
+
+# Build output
+dist/
+desktop/dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/settings.json

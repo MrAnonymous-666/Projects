@@ -1,0 +1,40 @@
+{
+  "name": "smart-task-manager-desktop",
+  "version": "1.0.0",
+  "description": "Smart Task Management System - Desktop App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder -mwl"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.yourname.taskmanager",
+    "productName": "Smart Task Manager",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "../frontend/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "../frontend/icon-512.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "../frontend/icon-512.png"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "../frontend/icon-512.png"
+    }
+  }
+}
