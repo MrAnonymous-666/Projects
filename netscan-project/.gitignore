@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+*.egg-info/
+.vscode/
+.idea/
+
+# Generated scan output - don't commit real scan data/reports
+reports/*.pdf
+reports/*.json
+scan_results.json
+network_report.pdf
+
+.DS_Store

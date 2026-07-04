@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NetScan — Network Security Scanner</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◈</span>
+      <span class="brand-name">NetScan</span>
+    </div>
+    <span class="tagline">local network vulnerability sweep</span>
+  </header>
+
+  <main class="wrap">
+    <section class="panel intro">
+      <h1>Scan your network</h1>
+      <p>
+        Runs host discovery, then an nmap service &amp; vulnerability sweep on every
+        live device, and produces a PDF report with plain-English remediation steps.
+      </p>
+      <p class="warn">Only scan networks and devices you own or have explicit permission to test.</p>
+
+      <form id="scan-form">
+        <label for="network">Network (leave blank to auto-detect yours)</label>
+        <input type="text" id="network" name="network" placeholder="e.g. 192.168.1.0/24" autocomplete="off">
+        <button type="submit" id="scan-btn">Start scan</button>
+      </form>
+    </section>
+
+    <section class="panel status-panel" id="status-panel" hidden>
+      <h2>Scan status</h2>
+      <div class="status-row">
+        <span class="status-label">Stage</span>
+        <span id="status-stage">—</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Network</span>
+        <span id="status-network">—</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Hosts found</span>
+        <span id="status-hosts">—</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Progress</span>
+        <span id="status-progress">—</span>
+      </div>
+
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+
+      <div id="status-message"></div>
+
+      <a id="download-link" class="download-btn" hidden download>Download PDF report</a>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
