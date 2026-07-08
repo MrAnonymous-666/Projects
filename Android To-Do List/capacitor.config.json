@@ -1,0 +1,9 @@
+{
+  "appId": "com.yourname.taskmanagerlocal",
+  "appName": "Smart Task Manager",
+  "webDir": "../frontend",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
