@@ -1,7 +1,7 @@
 {
   "name": "Smart Task Management System",
   "short_name": "TaskManager",
-  "description": "A smart, multi-user task manager with categories, priorities, and PDF export.",
+  "description": "A smart task manager that stores all data directly on your device.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f5f5f5",

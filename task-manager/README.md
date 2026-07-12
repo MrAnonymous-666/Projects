@@ -5,6 +5,7 @@
 task-manager/
   frontend/          -> index.html (HTML + CSS + JS all in one file)
     index.html
+    config.js          -> SINGLE PLACE to set the API URL (web/desktop/mobile all read this)
     manifest.json     -> makes it an installable PWA
     service-worker.js -> offline app-shell caching
     icon-192.png / icon-512.png
@@ -23,6 +24,10 @@ task-manager/
 
   desktop/               -> Electron wrapper for Windows/Mac/Linux apps
     main.js
+    package.json
+
+  mobile/                 -> Capacitor wrapper for Android/iOS apps
+    capacitor.config.json
     package.json
 
   server.js              -> starts the Express server (entry point)
@@ -75,17 +80,52 @@ VS Code "Live Server" extension). It's already configured to call
    second user — they'll have a completely separate task list.
 
 ## API Reference
-| Method | Endpoint             | Auth required | Description          |
-|--------|-----------------------|---------------|-----------------------|
-| POST   | /api/auth/register    | No            | Create a new account  |
-| POST   | /api/auth/login       | No            | Log in, get JWT token |
-| GET    | /api/tasks            | Yes           | Get your tasks        |
-| POST   | /api/tasks             | Yes           | Create a task         |
-| PUT    | /api/tasks/:id         | Yes           | Update/complete a task|
-| DELETE | /api/tasks/:id         | Yes           | Delete a task         |
+| Method | Endpoint                    | Auth required | Description               |
+|--------|------------------------------|---------------|-----------------------------|
+| POST   | /api/auth/register           | No            | Create a new account        |
+| POST   | /api/auth/login               | No            | Log in, get JWT token       |
+| POST   | /api/auth/forgot-password       | No            | Request a 6-digit OTP by email |
+| POST   | /api/auth/reset-password          | No            | Verify OTP, set a new password |
+| GET    | /api/tasks                          | Yes           | Get your tasks               |
+| POST   | /api/tasks                            | Yes           | Create a task                 |
+| PUT    | /api/tasks/:id                          | Yes           | Update/complete a task        |
+| DELETE | /api/tasks/:id                            | Yes           | Delete a task                  |
 
 All protected routes require a header:
 `Authorization: Bearer <token>`
+
+## Setting up "Forgot Password" (Email OTP)
+This uses Gmail's free SMTP to send OTP emails - no paid service needed.
+
+1. Use a Gmail account (create a free one if you don't want to use your
+   personal one for this).
+2. Turn on 2-Step Verification on that Google account:
+   https://myaccount.google.com/security
+3. Once 2-Step Verification is on, go to:
+   https://myaccount.google.com/apppasswords
+4. Create an App Password (choose "Mail" as the app). Google gives you a
+   16-character password - copy it.
+5. In your `.env` file, set:
+   ```
+   EMAIL_USER=your_gmail_address@gmail.com
+   EMAIL_PASS=the_16_character_app_password
+   ```
+   **Important**: `EMAIL_PASS` is the App Password Google generated, NOT
+   your normal Gmail login password. Your real Gmail password will not
+   work here and Google will reject it.
+6. Restart the backend (`npm run dev`). Test it: on the login screen,
+   click "Forgot Password?", enter a registered email, and check that
+   inbox for the OTP.
+
+**Free tier limit:** Gmail SMTP allows roughly 500 emails/day for free -
+more than enough for a college project or small user base. If you ever
+outgrow this, free tiers of Brevo (300 emails/day) or Resend are drop-in
+alternatives that only require changing `database/emailService.js`.
+
+**Security note already built in:** the `/forgot-password` endpoint
+always returns the same message whether or not the email exists in the
+database. This is intentional - it stops someone from using this form to
+check which emails have accounts on your app.
 
 ## Pushing this to GitHub
 ```bash
@@ -162,19 +202,23 @@ rewrite needed — same HTML/CSS/JS.
 ## One app, all 5 platforms (Android, iOS, Windows, Mac, Linux)
 You don't need to rebuild anything — the same `frontend/` folder becomes
 every native app. The pattern is:
-- **Capacitor** -> wraps it into Android + iOS apps
-- **Electron** -> wraps it into Windows + Mac + Linux desktop apps
-- Both just load your existing `index.html`, which calls your existing API
+- **Capacitor** (`mobile/` folder, already set up) -> Android + iOS
+- **Electron** (`desktop/` folder, already set up) -> Windows + Mac + Linux
+- All of them just load your existing `frontend/index.html`
 
-### Step 0 (required first): deploy your backend
+### Step 0 (required first): deploy your backend, then update ONE file
 A native app on someone's phone or laptop can't reach `localhost:5000` —
-that only exists on your dev machine. Deploy the `backend/` folder to
-Render.com or Railway.app (free tier), then update the `API_URL` constant
-near the top of `frontend/index.html`'s `<script>` to your live URL, e.g.
-`https://your-app.onrender.com/api`. Do this once, before building any of
-the apps below — all of them read from the same `index.html`.
+that only exists on your dev machine. Deploy the `backend` (the root
+`server.js` + `api/` + `database/` + `middleware/`) to Render.com or
+Railway.app (free tier), then open `frontend/config.js` and change the
+one line:
+```js
+const API_URL = "https://your-app-name.onrender.com/api";
+```
+That's it — web, PWA, desktop, and mobile all read from this same file,
+so you only ever update it in this one place.
 
-### Windows / Mac / Linux — using the `desktop/` folder (already set up)
+### Windows / Mac / Linux — the `desktop/` folder (already set up)
 ```bash
 cd desktop
 npm install
@@ -186,33 +230,32 @@ npm run build:win     # -> dist/*.exe  (run this on Windows, or use CI)
 npm run build:mac     # -> dist/*.dmg  (must be run on a Mac)
 npm run build:linux   # -> dist/*.AppImage and .deb
 ```
-Note: `electron-builder` can only reliably build Mac installers on a Mac,
-and Windows installers are best built on Windows (cross-building
-sometimes needs extra setup). If you only have one OS, GitHub Actions
-(free) can build all three for you — ask me if you want that workflow
-file set up.
+`electron-builder` can only reliably build Mac installers on a Mac, and
+Windows installers are best built on Windows. If you only have one OS,
+GitHub Actions (free) can build all three — ask me if you want that
+workflow file.
 
-### Android / iOS — using Capacitor
+### Android / iOS — the `mobile/` folder (already set up)
 ```bash
-cd frontend
-npm init -y
-npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios
-npx cap init "Smart Task Manager" "com.yourname.taskmanager" --web-dir "."
-npx cap add android
-npx cap add ios          # only works on a Mac with Xcode installed
-npx cap sync
-npx cap open android      # opens Android Studio -> Run or Build APK
-npx cap open ios          # opens Xcode -> Run or Archive (Mac only)
+cd mobile
+npm install
+npm run add:android      # generates the android/ native project
+npm run add:ios          # generates the ios/ native project (Mac only)
+npm run sync              # copies frontend/ into both native projects
+npm run open:android        # opens Android Studio -> Run or Build APK
+npm run open:ios              # opens Xcode -> Run or Archive (Mac only)
 ```
+Whenever you change anything in `frontend/`, re-run `npm run sync` inside
+`mobile/` to push those changes into the native projects.
+
 - Android: works on Windows/Mac/Linux, needs Android Studio installed.
-- iOS: **must** be built on a Mac with Xcode — this is an Apple
+- iOS: **must** be built on a Mac with Xcode — an Apple platform
   requirement, not something any tool can bypass. If you don't have a
   Mac, cloud Mac services (e.g. MacStadium, GitHub Actions macOS
   runners) can build it for you.
-- To actually publish, Android needs a one-time $25 Google Play
-  registration and iOS needs a $99/year Apple Developer account — for a
-  college practical, running it on an emulator/your own device via
-  Android Studio/Xcode is enough and doesn't need either.
+- To publish (not required for a college practical — running it on an
+  emulator/your own device is enough): Android needs a one-time $25
+  Google Play registration, iOS needs a $99/year Apple Developer account.
 
 ### Summary table
 | Platform | Tool       | Can build on           | Output              |
